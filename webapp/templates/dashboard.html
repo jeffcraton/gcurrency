@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - Currency Tracker</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { padding: 20px; }
+        .container { max-width: 1000px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        canvas { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Currency Rates (vs USD)</h1>
+        <div>
+            <select id="currencySelect" class="form-control d-inline-block" style="width: auto;">
+                <option value="">Select Currency</option>
+            </select>
+            <a href="/logout" class="btn btn-outline-danger ml-2">Logout</a>
+        </div>
+    </div>
+
+    <div id="chartContainer">
+        <canvas id="currencyChart"></canvas>
+    </div>
+</div>
+
+<script>
+    let chart;
+    const ctx = document.getElementById('currencyChart').getContext('2d');
+
+    async function loadCurrencies() {
+        const response = await fetch('/api/currencies');
+        const currencies = await response.json();
+        const select = document.getElementById('currencySelect');
+        currencies.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c;
+            opt.innerText = c;
+            select.appendChild(opt);
+        });
+        
+        // Load EUR by default if available
+        if (currencies.includes('EUR')) {
+            select.value = 'EUR';
+            updateChart('EUR');
+        }
+    }
+
+    async function updateChart(currency) {
+        if (!currency) return;
+        
+        const response = await fetch(`/api/history/${currency}`);
+        const data = await response.json();
+        
+        const labels = data.map(d => d.date || new Date(d.timestamp).toLocaleDateString());
+        const values = data.map(d => d.rate);
+
+        if (chart) {
+            chart.destroy();
+        }
+
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `${currency} / USD`,
+                    data: values,
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+    }
+
+    document.getElementById('currencySelect').addEventListener('change', (e) => {
+        updateChart(e.target.value);
+    });
+
+    loadCurrencies();
+</script>
+</body>
+</html>
