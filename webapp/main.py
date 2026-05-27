@@ -6,13 +6,19 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SESSION_SECRET', 'a-very-secret-key')
 
 # Initialize Firestore client
-db = firestore.Client()
+db = firestore.Client(project='cloudwriter-437021')
 
 @app.route('/')
 def index():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('dashboard.html')
+
+@app.route('/datasets')
+def datasets():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('datasets.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -29,6 +35,17 @@ def login():
 def logout():
     session.pop('user', None)
     return redirect(url_for('login'))
+
+@app.route('/api/datasets')
+def get_datasets():
+    if 'user' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    datasets = []
+    docs = db.collection('datasets').stream()
+    for doc in docs:
+        datasets.append(doc.to_dict())
+    return jsonify(datasets)
 
 @app.route('/api/currencies')
 def get_currencies():
