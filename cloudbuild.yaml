@@ -1,0 +1,50 @@
+steps:
+  # Build the webapp image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Webapp'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/currency-tracker-web:$_SHORT_SHA', './webapp']
+
+  # Push the webapp image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Webapp'
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/currency-tracker-web:$_SHORT_SHA']
+
+  # Deploy webapp to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy Webapp'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'currency-tracker-web'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/currency-tracker-web:$_SHORT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+
+  # Deploy the Cloud Function
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy Function'
+    entrypoint: gcloud
+    args:
+      - 'functions'
+      - 'deploy'
+      - 'fetch-currency-prices'
+      - '--gen2'
+      - '--region'
+      - 'us-central1'
+      - '--runtime'
+      - 'python311'
+      - '--source'
+      - './functions'
+      - '--entry-point'
+      - 'fetch_currency_prices'
+      - '--trigger-http'
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/currency-tracker-web:${_SHORT_SHA}'
+
+substitutions:
+  _SHORT_SHA: 'latest'
