@@ -12,6 +12,7 @@
         .api-item:last-child { border-bottom: none; }
         .endpoint-badge { font-family: monospace; background-color: #e9ecef; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
         .search-box { margin-bottom: 20px; }
+        .schema-table th { font-size: 0.85em; text-transform: uppercase; color: #6c757d; }
     </style>
 </head>
 <body>
@@ -36,6 +37,43 @@
         </div>
     </div>
 </div>
+
+<!-- Schema Modal -->
+<div class="modal fade" id="schemaModal" tabindex="-1" role="dialog" aria-labelledby="schemaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="schemaModalLabel">Table Schema</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="schemaLoading" class="text-center p-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+                <div id="schemaError" class="alert alert-danger d-none"></div>
+                <div id="schemaContent" class="d-none">
+                    <table class="table table-sm schema-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Label</th>
+                                <th>Type</th>
+                                <th>Format</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schemaBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
 <script>
     let allDatasets = [];
@@ -70,7 +108,10 @@
                             <div class="list-group-item api-item">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <h6 class="mb-0 text-primary">${api.tableName}</h6>
-                                    <span class="endpoint-badge">${api.endpoint}</span>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-info mr-2" onclick="viewSchema('${api.endpoint}', '${api.tableName}')">View Schema</button>
+                                        <span class="endpoint-badge">${api.endpoint}</span>
+                                    </div>
                                 </div>
                                 <p class="card-text small text-secondary">${api.tableDescription}</p>
                             </div>
@@ -79,6 +120,45 @@
                 </div>
             </div>
         `).join('');
+    }
+
+    async function viewSchema(endpoint, tableName) {
+        document.getElementById('schemaModalLabel').textContent = `Schema: ${tableName}`;
+        $('#schemaModal').modal('show');
+        
+        const loading = document.getElementById('schemaLoading');
+        const error = document.getElementById('schemaError');
+        const content = document.getElementById('schemaContent');
+        const body = document.getElementById('schemaBody');
+
+        loading.classList.remove('d-none');
+        error.classList.add('d-none');
+        content.classList.add('d-none');
+        body.innerHTML = '';
+
+        try {
+            const response = await fetch(`/api/schema/${endpoint}`);
+            const meta = await response.json();
+            
+            if (meta.error) throw new Error(meta.error);
+
+            const fields = Object.keys(meta.labels || {});
+            body.innerHTML = fields.map(field => `
+                <tr>
+                    <td><code>${field}</code></td>
+                    <td>${meta.labels[field]}</td>
+                    <td><span class="badge badge-light">${meta.dataTypes[field] || ''}</span></td>
+                    <td><small class="text-muted">${meta.dataFormats[field] || ''}</small></td>
+                </tr>
+            `).join('');
+
+            loading.classList.add('d-none');
+            content.classList.remove('d-none');
+        } catch (err) {
+            loading.classList.add('d-none');
+            error.textContent = `Error: ${err.message}`;
+            error.classList.remove('d-none');
+        }
     }
 
     document.getElementById('searchInput').addEventListener('input', (e) => {

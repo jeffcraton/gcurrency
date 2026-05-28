@@ -1,12 +1,15 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from google.cloud import firestore
 import os
+import requests
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SESSION_SECRET', 'a-very-secret-key')
 
 # Initialize Firestore client
 db = firestore.Client(project='cloudwriter-437021')
+
+BASE_URL = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
 
 @app.route('/')
 def index():
@@ -46,6 +49,20 @@ def get_datasets():
     for doc in docs:
         datasets.append(doc.to_dict())
     return jsonify(datasets)
+
+@app.route('/api/schema/<path:endpoint>')
+def get_schema(endpoint):
+    if 'user' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        # Request only 1 row to get the metadata efficiently
+        response = requests.get(f"{BASE_URL}{endpoint}", params={'page[size]': 1})
+        response.raise_for_status()
+        data = response.json()
+        return jsonify(data.get('meta', {}))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/currencies')
 def get_currencies():
