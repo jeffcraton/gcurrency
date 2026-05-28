@@ -48,3 +48,6 @@ images:
 
 substitutions:
   _SHORT_SHA: 'latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
